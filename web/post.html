@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Maiburogu - 浏览文章</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css" />
+		<style>
+			.loading-shimmer {
+				background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+				background-size: 200% 100%;
+				animation: shimmer 1.5s infinite;
+			}
+			@keyframes shimmer {
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
+			}
+			.markdown-body {
+				background: transparent !important;
+			}
+		</style>
+	</head>
+	<body class="bg-gray-50 min-h-screen font-sans antialiased text-gray-900">
+		<div class="max-w-4xl mx-auto px-4 py-8">
+			<header class="flex flex-col md:flex-row items-center justify-between mb-8 gap-4">
+				<a href="index.html" class="text-2xl font-bold text-gray-800 tracking-tight">Maiburogu</a>
+				<div id="language-switcher" class="flex flex-wrap gap-2"></div>
+			</header>
+
+			<article id="post-container" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-12 mb-8">
+				<div id="loader" class="space-y-6">
+					<div class="h-10 w-3/4 rounded-lg loading-shimmer"></div>
+					<div class="flex gap-4">
+						<div class="h-4 w-20 rounded loading-shimmer"></div>
+						<div class="h-4 w-20 rounded loading-shimmer"></div>
+					</div>
+					<div class="space-y-3 pt-4">
+						<div class="h-4 w-full rounded loading-shimmer"></div>
+						<div class="h-4 w-full rounded loading-shimmer"></div>
+					</div>
+				</div>
+
+				<div id="content-wrapper" class="hidden">
+					<h1 id="post-title" class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-6 leading-tight"></h1>
+
+					<div class="flex flex-wrap items-center gap-6 mb-10 text-sm text-gray-500 border-b border-gray-50 pb-6">
+						<!-- 修改：分类名称现在是一个链接 -->
+						<a id="category-link" href="#" class="px-3 py-1 bg-blue-50 text-blue-600 rounded-full font-medium hover:bg-blue-100 transition-colors">
+							<span id="category-name"></span>
+						</a>
+						<span class="flex items-center gap-1.5">
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+							</svg>
+							<span id="view-count">0</span> 次阅读
+						</span>
+						<span id="publish-date"></span>
+						<div id="post-tags" class="flex gap-2"></div>
+					</div>
+
+					<div id="post-body" class="markdown-body prose prose-slate max-w-none"></div>
+
+					<div class="mt-16 flex justify-center">
+						<button id="like-btn" onclick="handleLike()" class="group flex items-center gap-3 px-8 py-3 bg-white border-2 border-rose-100 text-rose-500 rounded-full hover:bg-rose-50 hover:border-rose-200 transition-all duration-300 shadow-sm active:scale-95">
+							<svg id="like-icon" class="w-6 h-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+							<span class="font-bold text-lg" id="like-count">0</span>
+						</button>
+					</div>
+				</div>
+			</article>
+
+			<!-- 评论区保持不变... -->
+			<section class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+				<div class="p-6 md:p-10 bg-gray-50 border-b border-gray-100">
+					<h3 class="text-xl font-bold text-gray-800">发表评论</h3>
+				</div>
+				<div class="p-6 md:p-10">
+					<div class="grid grid-cols-1 gap-4 mb-12">
+						<input type="text" id="comment-nickname" placeholder="您的暱称" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all" />
+						<textarea id="comment-content" rows="4" placeholder="说点什么吧..." class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white outline-none transition-all resize-none"></textarea>
+						<div class="flex justify-end">
+							<button onclick="submitComment()" class="px-8 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition shadow-lg hover:shadow-xl active:translate-y-0.5">提交评论</button>
+						</div>
+					</div>
+					<div class="space-y-8" id="comments-list"></div>
+				</div>
+			</section>
+		</div>
+
+		<script>
+			const PREF_LANG_KEY = "maiburogu_pref_lang";
+			const urlParams = new URLSearchParams(window.location.search);
+			let postId = urlParams.get("id") || 1;
+			let currentLang = urlParams.get("lang") || localStorage.getItem(PREF_LANG_KEY) || "zh-CN";
+
+			marked.setOptions({ breaks: true, gfm: true, headerIds: true });
+
+			async function fetchPost(lang = currentLang) {
+				try {
+					const response = await fetch(`/system/user/view-post.php?id=${postId}&lang=${lang}&_t=${Date.now()}`);
+					const result = await response.json();
+					if (result.success) {
+						currentLang = lang;
+						localStorage.setItem(PREF_LANG_KEY, lang);
+						renderPost(result.data);
+					} else {
+						document.getElementById("post-container").innerHTML = `<div class="text-center py-20 text-red-500 font-bold">${result.message}</div>`;
+					}
+				} catch (error) {
+					console.error("Fetch error:", error);
+				}
+			}
+
+			function renderPost(data) {
+				document.getElementById("loader").classList.add("hidden");
+				document.getElementById("content-wrapper").classList.remove("hidden");
+
+				document.getElementById("post-title").textContent = data.title;
+
+				// 设置分类名称和跳转链接
+				document.getElementById("category-name").textContent = data.category_name;
+				const categoryLink = document.getElementById("category-link");
+				if (data.category_id) {
+					categoryLink.href = `category.html?id=${data.category_id}`;
+					categoryLink.style.display = "inline-block";
+				} else {
+					categoryLink.href = "#";
+					categoryLink.classList.add("pointer-events-none", "opacity-50");
+				}
+
+				document.getElementById("view-count").textContent = data.view_count;
+				document.getElementById("like-count").textContent = data.like_count;
+				document.getElementById("publish-date").textContent = data.published_at ? data.published_at.split(" ")[0] : "";
+
+				const tagContainer = document.getElementById("post-tags");
+				tagContainer.innerHTML = "";
+				if (data.tags) {
+					data.tags.split(",").forEach((tag) => {
+						if (!tag.trim()) return;
+						const span = document.createElement("span");
+						span.className = "text-gray-400 before:content-['#']";
+						span.textContent = tag.trim();
+						tagContainer.appendChild(span);
+					});
+				}
+
+				const rawContent = data.content || "";
+				const isHtml = /<[a-z][\s\S]*>/i.test(rawContent);
+				document.getElementById("post-body").innerHTML = isHtml ? rawContent : marked.parse(rawContent);
+
+				renderLanguageSwitcher(data.availableLangs);
+				renderComments(data.comments);
+			}
+
+			// ... 其他函数 (renderLanguageSwitcher, renderComments, handleLike, submitComment) 保持不变 ...
+			function renderLanguageSwitcher(langs) {
+				const container = document.getElementById("language-switcher");
+				container.innerHTML = "";
+				if (!langs) return;
+				langs.forEach((lang) => {
+					const btn = document.createElement("button");
+					const isActive = lang === currentLang;
+					btn.className = `px-4 py-1.5 rounded-full text-sm font-bold transition-all ${isActive ? "bg-blue-600 text-white shadow-md" : "bg-gray-200 text-gray-600 hover:bg-gray-300"}`;
+					btn.textContent = lang;
+					btn.onclick = () => {
+						if (lang !== currentLang) {
+							window.scrollTo({ top: 0, behavior: "smooth" });
+							fetchPost(lang);
+						}
+					};
+					container.appendChild(btn);
+				});
+			}
+
+			function renderComments(comments) {
+				const list = document.getElementById("comments-list");
+				if (!comments || comments.length === 0) {
+					list.innerHTML = `<div class="text-center py-10 text-gray-400 italic">目前还没有评论，快来分享您的想法吧！</div>`;
+					return;
+				}
+				list.innerHTML = "";
+				comments.forEach((comment) => {
+					const item = document.createElement("div");
+					item.className = "group animate-fade-in";
+					const safeNickname = document.createTextNode(comment.nickname).wholeText;
+					const safeContent = document.createTextNode(comment.content).wholeText;
+					item.innerHTML = `
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-gray-800">${safeNickname}</span>
+                            <span class="text-xs text-gray-400">${comment.created_at}</span>
+                        </div>
+                        <div class="bg-gray-50 rounded-2xl p-4 text-gray-600 leading-relaxed border border-transparent group-hover:border-gray-100 transition-colors">
+                            ${safeContent.replace(/\n/g, "<br>")}
+                        </div>
+                    `;
+					list.appendChild(item);
+				});
+			}
+
+			async function handleLike() {
+				try {
+					const formData = new FormData();
+					formData.append("action", "like");
+					formData.append("post_id", postId);
+					const response = await fetch("/system/user/post-action.php", { method: "POST", body: formData });
+					const result = await response.json();
+					if (result.success) {
+						const countSpan = document.getElementById("like-count");
+						countSpan.textContent = parseInt(countSpan.textContent) + 1;
+						document.getElementById("like-icon").setAttribute("fill", "currentColor");
+					} else {
+						alert(result.message);
+					}
+				} catch (error) {
+					alert("操作失败");
+				}
+			}
+
+			async function submitComment() {
+				const nickname = document.getElementById("comment-nickname").value.trim();
+				const content = document.getElementById("comment-content").value.trim();
+				if (!nickname || !content) {
+					alert("请填写内容");
+					return;
+				}
+				try {
+					const formData = new FormData();
+					formData.append("action", "comment");
+					formData.append("post_id", postId);
+					formData.append("nickname", nickname);
+					formData.append("content", content);
+					const response = await fetch("/system/user/post-action.php", { method: "POST", body: formData });
+					const result = await response.json();
+					if (result.success) {
+						alert(result.message);
+						document.getElementById("comment-content").value = "";
+					} else {
+						alert(result.message);
+					}
+				} catch (error) {
+					alert("提交失败");
+				}
+			}
+
+			fetchPost();
+		</script>
+	</body>
+</html>

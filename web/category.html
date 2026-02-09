@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>分类文章 - Maiburogu</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			.loading-shimmer {
+				background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+				background-size: 200% 100%;
+				animation: shimmer 1.5s infinite;
+			}
+			@keyframes shimmer {
+				0% {
+					background-position: 200% 0;
+				}
+				100% {
+					background-position: -200% 0;
+				}
+			}
+		</style>
+	</head>
+	<body class="bg-gray-50 min-h-screen">
+		<div class="max-w-4xl mx-auto px-4 py-8">
+			<!-- 顶部导航 -->
+			<div class="flex items-center justify-between mb-8">
+				<a href="index.html" class="text-2xl font-bold text-gray-800 hover:text-blue-600 transition">Maiburogu</a>
+				<a href="javascript:history.back()" class="text-sm text-gray-500 hover:text-gray-800">← 返回上一页</a>
+			</div>
+
+			<!-- 分类标题区 -->
+			<div class="mb-10">
+				<h1 class="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-1">文章分类</h1>
+				<h2 id="category-title" class="text-4xl font-extrabold text-gray-900">载入中...</h2>
+			</div>
+
+			<!-- 帖子列表 -->
+			<div id="posts-list" class="space-y-6">
+				<!-- 骨架屏 -->
+				<div id="loader" class="space-y-6">
+					<div class="bg-white p-6 rounded-xl shadow-sm space-y-3">
+						<div class="h-6 w-3/4 rounded loading-shimmer"></div>
+						<div class="h-4 w-full rounded loading-shimmer"></div>
+						<div class="h-4 w-1/4 rounded loading-shimmer"></div>
+					</div>
+					<div class="bg-white p-6 rounded-xl shadow-sm space-y-3">
+						<div class="h-6 w-1/2 rounded loading-shimmer"></div>
+						<div class="h-4 w-full rounded loading-shimmer"></div>
+					</div>
+				</div>
+			</div>
+
+			<!-- 无内容或错误提示 -->
+			<div id="empty-state" class="hidden flex flex-col items-center justify-center py-20 text-center">
+				<div class="text-gray-300 text-6xl mb-4">📂</div>
+				<h3 class="text-xl font-bold text-gray-800">此分类下暂无文章</h3>
+				<p class="text-gray-500 mt-2">去首页看看其他内容吧</p>
+				<a href="index.html" class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">回首页</a>
+			</div>
+		</div>
+
+		<script>
+			const STORAGE_KEY = "maiburogu_pref_lang";
+			const urlParams = new URLSearchParams(window.location.search);
+			const categoryId = urlParams.get("id");
+
+			// 获取用户保存的语言偏好
+			const userLang = localStorage.getItem(STORAGE_KEY) || "";
+
+			async function fetchCategoryData() {
+				if (!categoryId) {
+					showError("缺少分类 ID");
+					return;
+				}
+
+				try {
+					const response = await fetch(`/system/user/category.php?id=${categoryId}&_t=${Date.now()}`);
+					const result = await response.json();
+
+					if (result.success) {
+						renderCategory(result.data);
+					} else {
+						showError(result.message);
+					}
+				} catch (error) {
+					showError("无法连线至服务器");
+				}
+			}
+
+			function renderCategory(data) {
+				document.getElementById("loader").classList.add("hidden");
+				document.getElementById("category-title").textContent = data.category_name;
+				document.title = `分类：${data.category_name} - Maiburogu`;
+
+				const listContainer = document.getElementById("posts-list");
+
+				if (!data.posts || data.posts.length === 0) {
+					document.getElementById("empty-state").classList.remove("hidden");
+					return;
+				}
+
+				data.posts.forEach((post) => {
+					const card = document.createElement("div");
+					card.className = "bg-white p-6 md:p-8 rounded-xl shadow-sm hover:shadow-md transition cursor-pointer border border-gray-100";
+
+					// 处理标签
+					let tagsHtml = "";
+					if (post.tags) {
+						const tags = post.tags.split(",").filter((t) => t.trim() !== "");
+						tagsHtml = tags.map((t) => `<span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">#${t.trim()}</span>`).join(" ");
+					}
+
+					// 格式化日期
+					const date = new Date(post.published_at).toLocaleDateString(navigator.language, {
+						year: "numeric",
+						month: "long",
+						day: "numeric",
+					});
+
+					// 点击卡片跳转到 index.html 查看内容 (带上语系偏好)
+					card.onclick = () => {
+						const langQuery = userLang ? `&lang=${userLang}` : "";
+						window.location.href = `post.html?id=${post.id}${langQuery}`;
+					};
+
+					card.innerHTML = `
+                    <h3 class="text-2xl font-bold text-gray-900 mb-3 hover:text-blue-600 transition">${post.title}</h3>
+                    <p class="text-gray-600 mb-4 line-clamp-2">${post.summary || "点击阅读全文..."}</p>
+                    <div class="flex items-center justify-between">
+                        <div class="flex flex-wrap gap-2">${tagsHtml}</div>
+                        <span class="text-sm text-gray-400 font-medium">${date}</span>
+                    </div>
+                `;
+					listContainer.appendChild(card);
+				});
+			}
+
+			function showError(msg) {
+				document.getElementById("loader").classList.add("hidden");
+				const title = document.getElementById("category-title");
+				title.textContent = "发生错误";
+				title.classList.add("text-red-500");
+
+				const list = document.getElementById("posts-list");
+				list.innerHTML = `<p class="text-center text-gray-500 py-10">${msg}</p>`;
+			}
+
+			fetchCategoryData();
+		</script>
+	</body>
+</html>

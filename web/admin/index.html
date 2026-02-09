@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-Hant">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>博客后台管理 - 登录</title>
+		<script src="https://cdn.tailwindcss.com"></script>
+		<style>
+			body {
+				background-color: #f3f4f6;
+			}
+		</style>
+	</head>
+	<body class="flex items-center justify-center min-h-screen">
+		<div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-xl">
+			<div class="text-center">
+				<h1 class="text-3xl font-bold text-gray-900">博客后台</h1>
+				<p class="mt-2 text-sm text-gray-600">请输入管理员凭据以继续</p>
+			</div>
+
+			<!-- 错误讯息提示区块 -->
+			<div id="error-box" class="hidden p-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert"></div>
+
+			<form class="mt-8 space-y-6" id="loginForm">
+				<div class="space-y-4">
+					<div>
+						<label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+						<input id="username" name="username" type="text" required class="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="请输入用户名" />
+					</div>
+					<div>
+						<label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+						<input id="password" name="password" type="password" required class="relative block w-full px-3 py-2 mt-1 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="请输入密码" />
+					</div>
+				</div>
+
+				<div>
+					<button type="submit" id="submitBtn" class="relative flex justify-center w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md group hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150">
+						<span id="btnText">登录后台系统</span>
+					</button>
+				</div>
+			</form>
+
+			<div class="text-center">
+				<a href="/" class="text-sm font-medium text-indigo-600 hover:text-indigo-500"> &larr; 返回首页 </a>
+			</div>
+		</div>
+
+		<script>
+			document.getElementById("loginForm").addEventListener("submit", async (e) => {
+				e.preventDefault();
+
+				const errorBox = document.getElementById("error-box");
+				const submitBtn = document.getElementById("submitBtn");
+				const btnText = document.getElementById("btnText");
+
+				// 初始化状态
+				errorBox.classList.add("hidden");
+				btnText.innerText = "处理中...";
+				submitBtn.disabled = true;
+
+				const formData = {
+					username: e.target.username.value,
+					password: e.target.password.value,
+				};
+
+				try {
+					const response = await fetch("/system/admin/login.php", {
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+						},
+						body: JSON.stringify(formData),
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						// Success
+						window.location.href = "dashboard.html";
+					} else {
+						//
+						errorBox.innerText = result.message;
+						errorBox.classList.remove("hidden");
+					}
+				} catch (err) {
+					errorBox.innerText = "连线伺服器失败，请检查网路";
+					errorBox.classList.remove("hidden");
+				} finally {
+					btnText.innerText = "登录后台系统";
+					submitBtn.disabled = false;
+				}
+			});
+		</script>
+	</body>
+</html>
