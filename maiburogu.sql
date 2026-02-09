@@ -1,13 +1,4 @@
-﻿# Host: localhost  (Version: 5.7.26)
-# Date: 2026-02-10 00:36:39
-# Generator: MySQL-Front 5.3  (Build 4.234)
-
-/*!40101 SET NAMES utf8 */;
-
-#
-# Structure for table "admins"
-#
-
+﻿-- 1. 管理员表 (仅保留结构)
 DROP TABLE IF EXISTS `admins`;
 CREATE TABLE `admins` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -18,24 +9,20 @@ CREATE TABLE `admins` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-#
-# Structure for table "categories"
-#
-
+-- 2. 分类表 (保留默认分类)
 DROP TABLE IF EXISTS `categories`;
 CREATE TABLE `categories` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL COMMENT '分类名称',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-#
-# Structure for table "posts"
-#
+INSERT INTO `categories` (`id`, `name`) VALUES (1, '默认分类');
 
+-- 3. 文章主表
 DROP TABLE IF EXISTS `posts`;
 CREATE TABLE `posts` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -53,12 +40,19 @@ CREATE TABLE `posts` (
   KEY `idx_published_at` (`published_at`),
   KEY `idx_status` (`status`),
   KEY `idx_category` (`category_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-#
-# Structure for table "post_translations"
-#
+-- 4. 文章内容表
+DROP TABLE IF EXISTS `post_contents`;
+CREATE TABLE `post_contents` (
+  `post_id` int(10) unsigned NOT NULL,
+  `content` longtext NOT NULL COMMENT '文章主体内容',
+  `content_html` longtext NOT NULL COMMENT '解析后的HTML内容',
+  PRIMARY KEY (`post_id`),
+  CONSTRAINT `post_contents_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5. 多语言翻译表
 DROP TABLE IF EXISTS `post_translations`;
 CREATE TABLE `post_translations` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -71,25 +65,9 @@ CREATE TABLE `post_translations` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_post_lang` (`post_id`,`lang`),
   CONSTRAINT `post_trans_fk` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4;
-
-#
-# Structure for table "post_contents"
-#
-
-DROP TABLE IF EXISTS `post_contents`;
-CREATE TABLE `post_contents` (
-  `post_id` int(10) unsigned NOT NULL,
-  `content` longtext NOT NULL COMMENT '文章主体内容',
-  `content_html` longtext NOT NULL COMMENT '解析后的HTML内容',
-  PRIMARY KEY (`post_id`),
-  CONSTRAINT `post_contents_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-#
-# Structure for table "comments"
-#
-
+-- 6. 评论表
 DROP TABLE IF EXISTS `comments`;
 CREATE TABLE `comments` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -105,13 +83,34 @@ CREATE TABLE `comments` (
   CONSTRAINT `comments_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-#
-# Structure for table "settings"
-#
+-- 7. 交互日志表 (阅读/点赞记录)
+DROP TABLE IF EXISTS `interaction_logs`;
+CREATE TABLE `interaction_logs` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `post_id` int(10) unsigned NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `type` enum('view','like') NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_ip_post_type` (`ip_address`,`post_id`,`type`,`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 8. 登录尝试记录表 (安全防御)
+DROP TABLE IF EXISTS `login_attempts`;
+CREATE TABLE `login_attempts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(255) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `attempt_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 9. 系统设置表 (仅保留翻译语言配置)
 DROP TABLE IF EXISTS `settings`;
 CREATE TABLE `settings` (
   `key_name` varchar(50) NOT NULL,
   `value` text,
   PRIMARY KEY (`key_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO `settings` (`key_name`, `value`) VALUES ('target_langs', '["en-US","ja-JP","ko-KR"]');
