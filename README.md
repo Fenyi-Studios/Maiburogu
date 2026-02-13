@@ -1,3 +1,5 @@
+[简体中文](README.md) | [English](README_EN.md)
+
 <div align="center">
 
 # Maiburogu
@@ -16,7 +18,7 @@
 
 <div align="center">
 
-![](readme-images/image.png)  
+![](readme-images/ai-powered-translation-zh.png)  
 **支持AI翻译**  
 (目前还没想到其他的)
 
