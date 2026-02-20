@@ -6,6 +6,8 @@
 		<title>Maiburogu - 浏览文章</title>
 		<script src="https://cdn.tailwindcss.com"></script>
 		<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css" />
 		<style>
 			.loading-shimmer {
@@ -72,6 +74,91 @@
 							<svg id="like-icon" class="w-6 h-6 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
 							<span class="font-bold text-lg" id="like-count">0</span>
 						</button>
+					</div>
+
+					<!-- 分享入口 -->
+					<div class="mt-10 flex justify-center gap-3">
+						<button id="share-btn" class="flex items-center gap-2 px-6 py-2.5 bg-gray-900 text-white font-bold rounded-full hover:bg-gray-800 transition shadow-sm active:scale-95" onclick="openShareModal()">
+							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C9.886 14.091 11 15.4 11 17a3 3 0 11-6 0c0-1.6 1.114-2.909 2.316-3.658M15 8a3 3 0 11-6 0 3 3 0 016 0zM18.684 10.342C19.886 11.091 21 12.4 21 14a3 3 0 11-6 0c0-1.6 1.114-2.909 2.316-3.658M8.684 13.342L15 8" />
+							</svg>
+							分享生成图片
+						</button>
+						<button id="copy-link-btn" class="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-full hover:bg-gray-50 transition shadow-sm active:scale-95" onclick="copyPostLink()">复制链接</button>
+					</div>
+
+					<!-- 分享弹窗 -->
+					<div id="share-modal" class="fixed inset-0 z-50 hidden">
+						<div class="absolute inset-0 bg-black/40" onclick="closeShareModal()"></div>
+
+						<div class="relative mx-auto mt-10 w-[92%] max-w-2xl bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+							<div class="p-5 md:p-6 flex items-center justify-between border-b border-gray-100">
+								<div class="font-extrabold text-gray-900 text-lg">分享海报</div>
+								<button class="p-2 rounded-lg hover:bg-gray-100" onclick="closeShareModal()">
+									<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+									</svg>
+								</button>
+							</div>
+
+							<div class="p-5 md:p-6">
+								<div class="flex flex-col md:flex-row gap-6">
+									<div class="flex-1">
+										<div class="text-sm text-gray-500 mb-2">预览</div>
+										<div class="rounded-xl border border-gray-100 bg-gray-50 p-3 overflow-auto">
+											<img id="share-preview" class="w-full rounded-lg hidden" alt="share preview" />
+											<div id="share-preview-loading" class="text-gray-400 italic py-10 text-center">正在生成海报...</div>
+										</div>
+
+										<div class="mt-4 flex flex-wrap gap-3">
+											<button class="px-5 py-2.5 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition active:scale-95" onclick="downloadShareImage()">下载图片</button>
+											<button class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition active:scale-95" onclick="regenerateShareImage()">重新生成</button>
+											<button id="native-share-btn" class="px-5 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 transition active:scale-95 hidden" onclick="nativeShareImage()">系统分享</button>
+										</div>
+									</div>
+
+									<div class="w-full md:w-64">
+										<div class="text-sm text-gray-500 mb-2">链接</div>
+										<div class="bg-gray-50 border border-gray-100 rounded-xl p-3 text-xs text-gray-700 break-all" id="share-link-box"></div>
+										<div class="mt-3 text-xs text-gray-400">* 海报包含二维码与短摘要，适合发朋友圈/群聊</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<!-- 隐藏的海报模板（用于截图生成图片） -->
+					<div class="fixed left-[-99999px] top-0">
+						<div id="share-card" class="w-[900px] bg-white rounded-[28px] border border-gray-100 overflow-hidden">
+							<!-- 顶部条 -->
+							<div class="px-10 pt-10 pb-6 bg-gradient-to-b from-gray-50 to-white">
+								<div class="text-sm font-bold text-gray-500" id="share-site-name">Maiburogu</div>
+								<div class="mt-3 text-4xl font-extrabold leading-tight text-gray-900" id="share-title"></div>
+
+								<div class="mt-4 flex flex-wrap items-center gap-2" id="share-tags"></div>
+							</div>
+
+							<!-- 内容 -->
+							<div class="px-10 pb-10">
+								<div class="text-gray-700 text-xl leading-relaxed" id="share-excerpt"></div>
+
+								<div class="mt-10 flex items-center justify-between gap-8">
+									<div class="flex-1">
+										<div class="text-sm text-gray-500 mb-2">链接</div>
+										<div class="text-sm text-gray-800 break-all" id="share-link"></div>
+									</div>
+
+									<div class="shrink-0">
+										<div class="text-sm text-gray-500 mb-2 text-center">扫码阅读</div>
+										<div class="bg-white border border-gray-200 rounded-2xl p-3 w-[160px] h-[160px] flex items-center justify-center">
+											<div id="share-qrcode"></div>
+										</div>
+									</div>
+								</div>
+
+								<div class="mt-8 text-xs text-gray-400">由 Maiburogu 生成 · 分享请保留来源</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</article>
@@ -246,6 +333,170 @@
 					}
 				} catch (error) {
 					alert("提交失败");
+				}
+			}
+
+			// ===== 分享海报功能 =====
+			let __shareDataUrl = "";
+			let __shareBlob = null;
+
+			function getPostLink() {
+				// 保留当前 id/lang 参数，生成可分享链接
+				const url = new URL(window.location.href);
+				// 清理刷新参数
+				url.searchParams.delete("_t");
+				return url.toString();
+			}
+
+			function getPlainTextFromBody(maxLen = 160) {
+				const bodyEl = document.getElementById("post-body");
+				if (!bodyEl) return "";
+				const text = (bodyEl.textContent || "").replace(/\s+/g, " ").trim();
+				if (!text) return "";
+				return text.length > maxLen ? text.slice(0, maxLen) + "…" : text;
+			}
+
+			function openShareModal() {
+				const modal = document.getElementById("share-modal");
+				const link = getPostLink();
+
+				document.getElementById("share-link-box").textContent = link;
+				modal.classList.remove("hidden");
+
+				// 如果支持系统分享（可选）
+				const nativeBtn = document.getElementById("native-share-btn");
+				if (navigator.share && navigator.canShare) {
+					nativeBtn.classList.remove("hidden");
+				} else {
+					nativeBtn.classList.add("hidden");
+				}
+
+				regenerateShareImage();
+			}
+
+			function closeShareModal() {
+				document.getElementById("share-modal").classList.add("hidden");
+			}
+
+			async function copyPostLink() {
+				try {
+					await navigator.clipboard.writeText(getPostLink());
+					alert("链接已复制");
+				} catch (e) {
+					// 兜底方案
+					const ta = document.createElement("textarea");
+					ta.value = getPostLink();
+					document.body.appendChild(ta);
+					ta.select();
+					document.execCommand("copy");
+					document.body.removeChild(ta);
+					alert("链接已复制");
+				}
+			}
+
+			async function regenerateShareImage() {
+				const previewImg = document.getElementById("share-preview");
+				const loading = document.getElementById("share-preview-loading");
+
+				previewImg.classList.add("hidden");
+				loading.classList.remove("hidden");
+				loading.textContent = "正在生成海报...";
+
+				try {
+					await generateShareImage();
+					previewImg.src = __shareDataUrl;
+					loading.classList.add("hidden");
+					previewImg.classList.remove("hidden");
+				} catch (err) {
+					console.error(err);
+					loading.textContent = "生成失败，请重试";
+				}
+			}
+
+			async function generateShareImage() {
+				if (!window.html2canvas) throw new Error("html2canvas 未加载");
+				if (!window.QRCode) throw new Error("QRCode 未加载");
+
+				const title = document.getElementById("post-title")?.textContent?.trim() || "未命名文章";
+
+				const tagsEl = document.getElementById("post-tags");
+				const tags = [];
+				if (tagsEl) {
+					tagsEl.querySelectorAll("span").forEach((s) => {
+						const t = (s.textContent || "").trim();
+						if (t) tags.push("#" + t.replace(/^#/, ""));
+					});
+				}
+
+				const link = getPostLink();
+				const excerpt = getPlainTextFromBody(180);
+
+				// 填充海报模板
+				document.getElementById("share-title").textContent = title;
+
+				const shareTags = document.getElementById("share-tags");
+				shareTags.innerHTML = "";
+				(tags.length ? tags : ["#分享", "#文章"]).slice(0, 6).forEach((t) => {
+					const span = document.createElement("span");
+					span.className = "px-3 py-1 rounded-full text-sm font-bold bg-gray-100 text-gray-700";
+					span.textContent = t;
+					shareTags.appendChild(span);
+				});
+
+				document.getElementById("share-excerpt").textContent = excerpt || "（暂无正文摘要）";
+				document.getElementById("share-link").textContent = link;
+
+				// 生成二维码（先清空再生成）
+				const qrWrap = document.getElementById("share-qrcode");
+				qrWrap.innerHTML = "";
+				new QRCode(qrWrap, {
+					text: link,
+					width: 130,
+					height: 130,
+					correctLevel: QRCode.CorrectLevel.M,
+				});
+
+				// 等二维码渲染到 DOM
+				await new Promise((r) => setTimeout(r, 60));
+
+				const card = document.getElementById("share-card");
+				const canvas = await html2canvas(card, {
+					scale: 2,
+					useCORS: true,
+					backgroundColor: "#ffffff",
+				});
+
+				__shareDataUrl = canvas.toDataURL("image/png");
+				__shareBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1));
+			}
+
+			function downloadShareImage() {
+				if (!__shareDataUrl) return alert("请先生成海报");
+				const a = document.createElement("a");
+				a.href = __shareDataUrl;
+				a.download = `share-${postId}-${Date.now()}.png`;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			}
+
+			async function nativeShareImage() {
+				try {
+					if (!__shareBlob) await generateShareImage();
+					const file = new File([__shareBlob], `share-${postId}.png`, { type: "image/png" });
+					if (navigator.canShare && navigator.canShare({ files: [file] })) {
+						await navigator.share({
+							title: document.getElementById("post-title")?.textContent || "分享文章",
+							text: "分享一篇文章给你",
+							files: [file],
+							url: getPostLink(),
+						});
+					} else {
+						alert("当前浏览器不支持文件分享，已为你生成可下载图片。");
+					}
+				} catch (e) {
+					console.error(e);
+					alert("分享失败或已取消");
 				}
 			}
 
