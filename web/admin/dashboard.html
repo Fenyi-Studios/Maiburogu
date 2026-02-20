@@ -72,6 +72,9 @@
 							<button onclick="switchTab('comments')" class="w-full text-left px-4 py-2 rounded hover:bg-indigo-50 text-gray-700 font-medium tab-btn" data-tab="comments"><i class="fas fa-comments mr-2"></i> 评论审核</button>
 						</li>
 						<li>
+							<button onclick="switchTab('admins')" class="w-full text-left px-4 py-2 rounded hover:bg-indigo-50 text-gray-700 font-medium tab-btn" data-tab="admins"><i class="fas fa-user-shield mr-2"></i> 管理员管理</button>
+						</li>
+						<li>
 							<button onclick="switchTab('settings')" class="w-full text-left px-4 py-2 rounded hover:bg-indigo-50 text-gray-700 font-medium tab-btn" data-tab="settings"><i class="fas fa-cog mr-2"></i> 系统设置</button>
 						</li>
 					</ul>
@@ -196,6 +199,36 @@
 						</form>
 					</div>
 				</div>
+				<!-- 6. 管理员管理 -->
+				<div id="view-admins" class="view-section hidden">
+					<div class="flex items-center justify-between mb-6">
+						<h2 class="text-2xl font-bold text-gray-800">管理员管理</h2>
+						<div class="flex gap-2">
+							<button onclick="openAddAdminModal()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 text-sm"><i class="fas fa-user-plus mr-1"></i> 添加管理员</button>
+							<button onclick="openChangePasswordModal(currentAdminId)" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 text-sm"><i class="fas fa-key mr-1"></i> 修改我的密码</button>
+						</div>
+					</div>
+
+					<div class="bg-white rounded-lg shadow overflow-x-auto">
+						<table class="min-w-full">
+							<thead class="bg-gray-50">
+								<tr>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用户名</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">昵称</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最后登录</th>
+									<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+									<th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+								</tr>
+							</thead>
+							<tbody id="adminsTableBody" class="bg-white divide-y divide-gray-200">
+								<tr>
+									<td class="px-6 py-4 text-sm text-gray-500" colspan="6">加载中...</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
 			</main>
 		</div>
 
@@ -304,6 +337,7 @@
 			let easyMDE = null;
 			let currentUploadType = "";
 			let allCategories = [];
+			let currentAdminId = null;
 
 			document.addEventListener("DOMContentLoaded", () => {
 				checkLogin();
@@ -336,6 +370,7 @@
 				if (tabName === "categories") loadCategories();
 				if (tabName === "comments") loadComments();
 				if (tabName === "settings") loadSettings();
+				if (tabName === "admins") loadAdmins();
 			}
 
 			// --- API ---
@@ -358,6 +393,8 @@
 				if (!res.success) window.location.href = "index.html";
 				else {
 					document.getElementById("adminName").innerText = res.user;
+
+					currentAdminId = res.admin_id ?? null;
 					switchTab("overview");
 				}
 			}
@@ -655,6 +692,174 @@
 					} else alert(res.message);
 				}
 			}
+
+			// --- 管理员管理 ---
+			async function loadAdmins() {
+				const res = await fetchAPI("get_admins");
+				if (!res.success) return alert(res.message || "加载失败");
+				const tbody = document.getElementById("adminsTableBody");
+				if (!tbody) return;
+				const admins = res.admins || [];
+				if (admins.length === 0) {
+					tbody.innerHTML = `<tr><td class="px-6 py-4 text-sm text-gray-500" colspan="6">暂无管理员</td></tr>`;
+					return;
+				}
+				tbody.innerHTML = admins
+					.map((a) => {
+						const isMe = currentAdminId && Number(a.id) === Number(currentAdminId);
+						const lastLogin = a.last_login_at ? a.last_login_at : "-";
+						const createdAt = a.created_at ? a.created_at : "-";
+						const nick = a.nickname ? a.nickname : "-";
+						return `
+						<tr>
+							<td class="px-6 py-4 text-sm text-gray-700">${a.id}</td>
+							<td class="px-6 py-4 text-sm text-gray-700">
+								${escapeHtml(a.username)} ${isMe ? '<span class="ml-2 text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-700">当前</span>' : ""}
+							</td>
+							<td class="px-6 py-4 text-sm text-gray-700">${escapeHtml(nick)}</td>
+							<td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(lastLogin)}</td>
+							<td class="px-6 py-4 text-sm text-gray-500">${escapeHtml(createdAt)}</td>
+							<td class="px-6 py-4 text-sm text-right space-x-2">
+								<button class="text-xs px-3 py-1 rounded bg-gray-800 text-white hover:bg-gray-900" onclick="openChangePasswordModal(${a.id}, '${escapeAttr(a.username)}')">
+									<i class="fas fa-key mr-1"></i>改密
+								</button>
+								${
+									isMe
+										? ""
+										: `<button class="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700" onclick="deleteAdmin(${a.id})">
+									<i class="fas fa-trash mr-1"></i>删除
+								</button>`
+								}
+							</td>
+						</tr>`;
+					})
+					.join("");
+			}
+
+			function openAddAdminModal() {
+				const m = document.getElementById("addAdminModal");
+				m.classList.remove("hidden");
+				m.classList.add("flex");
+				document.getElementById("newAdminUsername").value = "";
+				document.getElementById("newAdminNickname").value = "";
+				document.getElementById("newAdminPassword").value = "";
+			}
+			function closeAddAdminModal() {
+				const m = document.getElementById("addAdminModal");
+				m.classList.add("hidden");
+				m.classList.remove("flex");
+			}
+			async function submitAddAdmin() {
+				const username = document.getElementById("newAdminUsername").value.trim();
+				const nickname = document.getElementById("newAdminNickname").value.trim();
+				const password = document.getElementById("newAdminPassword").value;
+				const res = await fetchAPI("add_admin", "POST", { username, nickname, password });
+				if (!res.success) return alert(res.message || "添加失败");
+				closeAddAdminModal();
+				await loadAdmins();
+				alert("添加成功");
+			}
+
+			function openChangePasswordModal(id, username = "") {
+				const m = document.getElementById("changePasswordModal");
+				m.classList.remove("hidden");
+				m.classList.add("flex");
+				document.getElementById("changePwdAdminId").value = id;
+				document.getElementById("oldPassword").value = "";
+				document.getElementById("newPassword").value = "";
+				const isMe = currentAdminId && Number(id) === Number(currentAdminId);
+				document.getElementById("oldPwdWrap").classList.toggle("hidden", !isMe);
+				document.getElementById("changePwdTitle").innerText = isMe ? "修改我的密码" : `修改密码：${username || "管理员#" + id}`;
+			}
+			function closeChangePasswordModal() {
+				const m = document.getElementById("changePasswordModal");
+				m.classList.add("hidden");
+				m.classList.remove("flex");
+			}
+			async function submitChangePassword() {
+				const id = Number(document.getElementById("changePwdAdminId").value || 0);
+				const old_password = document.getElementById("oldPassword").value;
+				const new_password = document.getElementById("newPassword").value;
+				const payload = { id, new_password };
+				const isMe = currentAdminId && Number(id) === Number(currentAdminId);
+				if (isMe) payload.old_password = old_password;
+				const res = await fetchAPI("change_password", "POST", payload);
+				if (!res.success) return alert(res.message || "修改失败");
+				closeChangePasswordModal();
+				alert("密码已更新");
+			}
+
+			async function deleteAdmin(id) {
+				if (!confirm("确定要删除该管理员吗？此操作不可恢复。")) return;
+				const res = await fetchAPI("delete_admin", "POST", { id });
+				if (!res.success) return alert(res.message || "删除失败");
+				await loadAdmins();
+				alert("删除成功");
+			}
+
+			// --- utils ---
+			function escapeHtml(str) {
+				if (str === null || str === undefined) return "";
+				return String(str).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+			}
+			function escapeAttr(str) {
+				// for single-quoted attr usage
+				return escapeHtml(str).replaceAll("&#039;", "\\'");
+			}
 		</script>
+
+		<!-- 添加管理员 Modal -->
+		<div id="addAdminModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+			<div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+				<div class="p-6 border-b flex justify-between items-center">
+					<h3 class="text-lg font-bold text-gray-800">添加管理员</h3>
+					<button onclick="closeAddAdminModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+				</div>
+				<div class="p-6 space-y-4">
+					<div>
+						<label class="block text-sm text-gray-600 mb-1">用户名</label>
+						<input id="newAdminUsername" type="text" class="w-full border rounded px-3 py-2" placeholder="3-64位，仅字母数字._-" />
+					</div>
+					<div>
+						<label class="block text-sm text-gray-600 mb-1">昵称（可选）</label>
+						<input id="newAdminNickname" type="text" class="w-full border rounded px-3 py-2" placeholder="例如：运营小王" />
+					</div>
+					<div>
+						<label class="block text-sm text-gray-600 mb-1">初始密码</label>
+						<input id="newAdminPassword" type="password" class="w-full border rounded px-3 py-2" placeholder="至少6位" />
+					</div>
+					<p class="text-xs text-gray-500">提示：首次登录后建议立刻修改密码。</p>
+				</div>
+				<div class="p-6 border-t flex justify-end gap-2">
+					<button onclick="closeAddAdminModal()" class="px-4 py-2 rounded border text-gray-700 hover:bg-gray-50">取消</button>
+					<button onclick="submitAddAdmin()" class="px-4 py-2 rounded bg-indigo-600 text-white hover:bg-indigo-700">添加</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 修改密码 Modal -->
+		<div id="changePasswordModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+			<div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+				<div class="p-6 border-b flex justify-between items-center">
+					<h3 id="changePwdTitle" class="text-lg font-bold text-gray-800">修改密码</h3>
+					<button onclick="closeChangePasswordModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+				</div>
+				<div class="p-6 space-y-4">
+					<input type="hidden" id="changePwdAdminId" />
+					<div id="oldPwdWrap">
+						<label class="block text-sm text-gray-600 mb-1">旧密码</label>
+						<input id="oldPassword" type="password" class="w-full border rounded px-3 py-2" />
+					</div>
+					<div>
+						<label class="block text-sm text-gray-600 mb-1">新密码</label>
+						<input id="newPassword" type="password" class="w-full border rounded px-3 py-2" placeholder="至少6位" />
+					</div>
+				</div>
+				<div class="p-6 border-t flex justify-end gap-2">
+					<button onclick="closeChangePasswordModal()" class="px-4 py-2 rounded border text-gray-700 hover:bg-gray-50">取消</button>
+					<button onclick="submitChangePassword()" class="px-4 py-2 rounded bg-gray-800 text-white hover:bg-gray-900">保存</button>
+				</div>
+			</div>
+		</div>
 	</body>
 </html>

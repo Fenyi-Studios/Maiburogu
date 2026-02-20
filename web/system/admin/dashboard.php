@@ -354,12 +354,118 @@ try {
             $stmt->execute([$input['id']]);
             echo json_encode(['success' => true, 'message' => '删除成功']);
             break;
+
+        // --- 管理员管理 ---
+        case 'get_admins':
+            $stmt = $pdo->query("SELECT id, username, nickname, last_login_at, created_at FROM admins ORDER BY id DESC");
+            $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo json_encode(['success' => true, 'admins' => $admins]);
+            break;
+
+        case 'add_admin':
+            if ($method !== 'POST') {
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+                break;
+            }
+            $data = getJsonInput();
+            $username = trim($data['username'] ?? '');
+            $password = (string)($data['password'] ?? '');
+            $nickname = trim($data['nickname'] ?? '');
+
+            if ($username === '' || !preg_match('/^[a-zA-Z0-9_\-\.]{3,64}$/', $username)) {
+                echo json_encode(['success' => false, 'message' => '用户名不合法（3-64位，仅字母数字._-）']);
+                break;
+            }
+            if (mb_strlen($password) < 6) {
+                echo json_encode(['success' => false, 'message' => '密码至少 6 位']);
+                break;
+            }
+
+            // username unique
+            $check = $pdo->prepare("SELECT id FROM admins WHERE username = :u LIMIT 1");
+            $check->execute([':u' => $username]);
+            if ($check->fetchColumn()) {
+                echo json_encode(['success' => false, 'message' => '用户名已存在']);
+                break;
+            }
+
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO admins (username, password, nickname, created_at) VALUES (:u, :p, :n, NOW())");
+            $ok = $stmt->execute([':u' => $username, ':p' => $hash, ':n' => $nickname]);
+
+            echo json_encode(['success' => (bool)$ok, 'message' => $ok ? '添加成功' : '添加失败']);
+            break;
+
+        case 'delete_admin':
+            if ($method !== 'POST') {
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+                break;
+            }
+            $data = getJsonInput();
+            $id = (int)($data['id'] ?? 0);
+            if ($id <= 0) {
+                echo json_encode(['success' => false, 'message' => '参数错误']);
+                break;
+            }
+            if ($id === (int)$_SESSION['admin_id']) {
+                echo json_encode(['success' => false, 'message' => '不能删除当前登录账号']);
+                break;
+            }
+            $stmt = $pdo->prepare("DELETE FROM admins WHERE id = :id");
+            $ok = $stmt->execute([':id' => $id]);
+            echo json_encode(['success' => (bool)$ok, 'message' => $ok ? '删除成功' : '删除失败']);
+            break;
+
+        case 'change_password':
+            if ($method !== 'POST') {
+                http_response_code(405);
+                echo json_encode(['success' => false, 'message' => 'Method Not Allowed']);
+                break;
+            }
+            $data = getJsonInput();
+            $targetId = (int)($data['id'] ?? $_SESSION['admin_id']);
+            $old = (string)($data['old_password'] ?? '');
+            $new = (string)($data['new_password'] ?? '');
+
+            if ($targetId <= 0 || mb_strlen($new) < 6) {
+                echo json_encode(['success' => false, 'message' => '参数错误（新密码至少 6 位）']);
+                break;
+            }
+
+            // 修改自己：必须校验旧密码
+            if ($targetId === (int)$_SESSION['admin_id']) {
+                if ($old === '') {
+                    echo json_encode(['success' => false, 'message' => '请输入旧密码']);
+                    break;
+                }
+                $stmt = $pdo->prepare("SELECT password FROM admins WHERE id = :id LIMIT 1");
+                $stmt->execute([':id' => $targetId]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if (!$row || !password_verify($old, $row['password'])) {
+                    echo json_encode(['success' => false, 'message' => '旧密码不正确']);
+                    break;
+                }
+            }
+
+            $hash = password_hash($new, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("UPDATE admins SET password = :p WHERE id = :id");
+            $ok = $stmt->execute([':p' => $hash, ':id' => $targetId]);
+            echo json_encode(['success' => (bool)$ok, 'message' => $ok ? '密码已更新' : '更新失败']);
+            break;
+
+
         case 'logout':
             session_destroy();
             echo json_encode(['success' => true]);
             break;
         case 'check_login':
-            echo json_encode(['success' => true, 'user' => $_SESSION['admin_name']]);
+            echo json_encode([
+                'success' => true,
+                'user' => $_SESSION['admin_name'] ?? '管理员',
+                'admin_id' => $_SESSION['admin_id'],
+            ]);
             break;
         default:
             echo json_encode(['success' => false, 'message' => '未知操作']);
